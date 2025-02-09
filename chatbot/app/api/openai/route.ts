@@ -1,3 +1,4 @@
+// app/api/openai/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { openai, pc } from '../config';
 import { connectToDatabase } from '../config';
@@ -9,7 +10,7 @@ interface ChatInteraction {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
-  sessionId: string;  // To group messages from the same session
+  sessionId: string;
 }
 
 const SYSTEM_MESSAGE: Message = {
@@ -22,7 +23,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { message, sessionId = new Date().toISOString() } = body;
 
-    // Input validation
     if (!message?.trim()) {
       return NextResponse.json(
         { error: 'Message is required' },
@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Connect to database
     const db = await connectToDatabase();
     if (!db) {
       throw new Error('Failed to connect to database');
@@ -45,19 +44,14 @@ export async function POST(req: NextRequest) {
       .toArray();
 
     // Format chat history with system message
-    let formattedChatHistory: Message[] = [SYSTEM_MESSAGE];
-    
-    if (chatHistory.length > 0) {
-      formattedChatHistory.push(
-        ...chatHistory.map(entry => ({
-          role: entry.role,
-          content: entry.content
-        }))
-      );
-    }
-
-    // Add current message to history
-    formattedChatHistory.push({ role: 'user', content: message });
+    const formattedChatHistory: Message[] = [
+      SYSTEM_MESSAGE,
+      ...chatHistory.map(entry => ({
+        role: entry.role,
+        content: entry.content
+      })),
+      { role: 'user', content: message }
+    ];
 
     try {
       // Generate embedding and query index in parallel
@@ -106,14 +100,12 @@ Please use this context to inform your response to the user's latest message.`
 
       // Store conversation in database
       await Promise.all([
-        // Store user message
         chatCollection.insertOne({
           role: 'user',
           content: message,
           timestamp: new Date(),
           sessionId
         }),
-        // Store assistant reply
         chatCollection.insertOne({
           role: 'assistant',
           content: reply,
