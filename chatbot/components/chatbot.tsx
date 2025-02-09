@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MessageCircle, Book, Calendar, FileText, Send } from "lucide-react";
 
 interface Message {
@@ -11,6 +11,26 @@ const Talk: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string>("");
+
+  useEffect(() => {
+    // Generate a session ID when the component mounts
+    setSessionId(new Date().toISOString());
+    
+    const fetchChatHistory = async () => {
+      try {
+        const response = await fetch("/api/chat-history");
+        if (!response.ok) throw new Error("Failed to fetch chat history");
+
+        const data = await response.json();
+        setMessages(data.history || []);
+      } catch (error) {
+        console.error("Error fetching chat history:", error);
+      }
+    };
+
+    fetchChatHistory();
+  }, []);
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +45,10 @@ const Talk: React.FC = () => {
       const response = await fetch("/api/openai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ 
+          message: input,
+          sessionId: sessionId // Include sessionId with each message
+        }),
       });
 
       if (!response.ok) {
@@ -34,10 +57,27 @@ const Talk: React.FC = () => {
       }
 
       const data = await response.json();
-      const botMessage: Message = { sender: "bot", text: data.reply };
+      
+      // Handle the bot's response
+      const botMessage: Message = { 
+        sender: "bot", 
+        text: data.reply || "I'm not sure how to respond to that." 
+      };
+
       setMessages((prevMessages) => [...prevMessages, botMessage]);
+      
+      // Update session ID if a new one is provided
+      if (data.sessionId) {
+        setSessionId(data.sessionId);
+      }
     } catch (error) {
       console.error("Error:", error);
+      // Add error message to chat
+      const errorBotMessage: Message = {
+        sender: "bot",
+        text: "Sorry, I encountered an error. Please try again."
+      };
+      setMessages((prevMessages) => [...prevMessages, errorBotMessage]);
     } finally {
       setLoading(false);
     }
@@ -45,7 +85,6 @@ const Talk: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      {/* Sidebar */}
       <div className="w-56 bg-white dark:bg-gray-800 shadow-sm border-r dark:border-gray-700">
         <div className="p-4">
           <select className="w-full p-2 border rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
@@ -72,7 +111,6 @@ const Talk: React.FC = () => {
         </div>
       </div>
 
-      {/* Chat Area */}
       <div className="flex-1 flex flex-col">
         <div className="bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700">
           <h1 className="text-lg font-semibold">Course Assistant</h1>

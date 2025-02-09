@@ -1,85 +1,156 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openai, pc } from '../config';
+import { connectToDatabase } from '../config';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 type Message = ChatCompletionMessageParam;
 
-let chatHistory: Message[] = [
-  { role: 'system', content: "You are a virtual teaching assistant for a cybersecurity class. Provide helpful responses to questions using the given context." }
-];
+interface ChatInteraction {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: Date;
+  sessionId: string;  // To group messages from the same session
+}
+
+const SYSTEM_MESSAGE: Message = {
+  role: 'system',
+  content: "You are a knowledgeable and friendly virtual teaching assistant for a cybersecurity class. Use the provided course materials—such as textbooks, lecture slides, quizzes, and the syllabus—to give clear, concise, and accurate answers to student questions. If the context doesn't provide enough information, offer general guidance based on cybersecurity best practices. Always aim to make complex topics easier to understand, and encourage students to think critically. If you're unsure, suggest where students might find the answer in their course materials."
+};
 
 export async function POST(req: NextRequest) {
-  const { message } = await req.json();
-
-  if (!message) {
-    return NextResponse.json({ reply: null }, { status: 400 });
-  }
-
   try {
-    const [embeddingResponse, index] = await Promise.all([
-      openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: message,
-      }),
-      pc.index("vta-risk-management"),
-    ]);
+    const body = await req.json();
+    const { message, sessionId = new Date().toISOString() } = body;
 
-    const embedding = embeddingResponse.data[0].embedding;
-
-    const queryResponse = await index.namespace('Syllabus-data').query({
-      vector: embedding,
-      topK: 3,
-      includeMetadata: true,
-    });
-
-    const metadataResults = queryResponse.matches.map(match => match.metadata);
-
-    console.log('Metadata Results:', JSON.stringify(metadataResults, null, 2));
-
-    chatHistory.push({ role: 'user', content: message });
-
-    const messagesForAPI: ChatCompletionMessageParam[] = [
-      ...chatHistory,
-      {
-        role: 'user',
-        content: `Context: ${JSON.stringify(metadataResults)}
-        Please use this context to inform your response to the user's latest message.`
-      }
-    ];
-
-    console.log('Messages for API:', JSON.stringify(messagesForAPI, null, 2));
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: messagesForAPI,
-      temperature: 0.7,
-      max_tokens: 150,
-    });
-
-    if (response.choices && response.choices.length > 0) {
-      const reply = response.choices[0].message.content;
-
-      if (reply) {
-        chatHistory.push({ role: 'assistant', content: reply });
-
-        if (chatHistory.length > 11) {
-          chatHistory = [
-            chatHistory[0],
-            ...chatHistory.slice(-10)
-          ];
-        }
-
-        console.log('Final Chat History:', JSON.stringify(chatHistory, null, 2));
-
-        return NextResponse.json({ reply, history: chatHistory });
-      } else {
-        throw new Error("Empty reply from OpenAI");
-      }
-    } else {
-      throw new Error("Unexpected response structure from OpenAI");
+    // Input validation
+    if (!message?.trim()) {
+      return NextResponse.json(
+        { error: 'Message is required' },
+        { status: 400 }
+      );
     }
+
+    // Connect to database
+    const db = await connectToDatabase();
+    if (!db) {
+      throw new Error('Failed to connect to database');
+    }
+
+    const chatCollection = db.collection<ChatInteraction>('chat_interactions');
+
+    // Retrieve recent chat history for context
+    const chatHistory = await chatCollection
+      .find({ sessionId })
+      .sort({ timestamp: 1 })
+      .toArray();
+
+    // Format chat history with system message
+    let formattedChatHistory: Message[] = [SYSTEM_MESSAGE];
+    
+    if (chatHistory.length > 0) {
+      formattedChatHistory.push(
+        ...chatHistory.map(entry => ({
+          role: entry.role,
+          content: entry.content
+        }))
+      );
+    }
+
+    // Add current message to history
+    formattedChatHistory.push({ role: 'user', content: message });
+
+    try {
+      // Generate embedding and query index in parallel
+      const [embeddingResponse, index] = await Promise.all([
+        openai.embeddings.create({
+          model: "text-embedding-3-small",
+          input: message,
+        }),
+        pc.index("vta-risk-management"),
+      ]);
+
+      const embedding = embeddingResponse.data[0].embedding;
+
+      // Query the vector database
+      const queryResponse = await index.namespace('Syllabus-data').query({
+        vector: embedding,
+        topK: 3,
+        includeMetadata: true,
+      });
+
+      const metadataResults = queryResponse.matches.map(match => match.metadata);
+
+      // Prepare messages for OpenAI API
+      const messagesForAPI: Message[] = [
+        ...formattedChatHistory,
+        {
+          role: 'user',
+          content: `Context: ${JSON.stringify(metadataResults)}
+Please use this context to inform your response to the user's latest message.`
+        }
+      ];
+
+      // Get OpenAI response
+      const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: messagesForAPI,
+        temperature: 0.7,
+        max_tokens: 150,
+      });
+
+      const reply = response.choices[0]?.message?.content;
+
+      if (!reply) {
+        throw new Error("Empty or invalid reply from OpenAI");
+      }
+
+      // Store conversation in database
+      await Promise.all([
+        // Store user message
+        chatCollection.insertOne({
+          role: 'user',
+          content: message,
+          timestamp: new Date(),
+          sessionId
+        }),
+        // Store assistant reply
+        chatCollection.insertOne({
+          role: 'assistant',
+          content: reply,
+          timestamp: new Date(),
+          sessionId
+        })
+      ]);
+
+      return NextResponse.json({
+        reply,
+        sessionId,
+        history: formattedChatHistory
+      });
+
+    } catch (error) {
+      console.error("OpenAI API Error:", error);
+      throw new Error(
+        error instanceof Error 
+          ? error.message 
+          : "Failed to process message with OpenAI"
+      );
+    }
+
   } catch (error) {
-    console.error("Error:", error);
-    return NextResponse.json({ reply: null, history: chatHistory }, { status: 500 });
+    console.error("Server Error:", error);
+    
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : "An unexpected error occurred";
+
+    return NextResponse.json(
+      { 
+        error: errorMessage,
+        reply: null,
+        history: [] 
+      },
+      { status: 500 }
+    );
   }
 }
