@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       const embedding = embeddingResponse.data[0].embedding;
 
       // Query the vector database
-      const queryResponse = await index.namespace('Syllabus-data').query({
+      const queryResponse = await index.namespace('Syllabus-data-betterChuncking').query({
         vector: embedding,
         topK: 3,
         includeMetadata: true,
@@ -86,7 +86,7 @@ Please use this context to inform your response to the user's latest message.`
 
       // Get OpenAI response
       const response = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4o-mini",
         messages: messagesForAPI,
         temperature: 0.7,
         max_tokens: 150,
