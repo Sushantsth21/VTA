@@ -18,6 +18,31 @@ const SYSTEM_MESSAGE: Message = {
   content: "You are a knowledgeable and friendly virtual teaching assistant for a cybersecurity class. Use the provided course materials—such as textbooks, lecture slides, quizzes, and the syllabus—to give clear, concise, and accurate answers to student questions. If the context doesn't provide enough information, offer general guidance based on cybersecurity best practices. Always aim to make complex topics easier to understand, and encourage students to think critically. If you're unsure, suggest where students might find the answer in their course materials."
 };
 
+async function processUserInput(input: string): Promise<string> {
+  const correctionPrompt = `
+Check whether there are any mistakes in the following input. If there are mistakes, correct them. 
+Then convert it into a question format (who, what, when, how, why, or where) if it is not already. 
+Do not modify anything unnecessarily. Keep it simple and proper.
+Input: "${input}"
+Corrected and Question format:
+`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "system", content: correctionPrompt }],
+      temperature: 0,
+      max_tokens: 50,
+    });
+
+    return response.choices[0]?.message?.content?.trim() || input;
+  } catch (error) {
+    console.error("Error processing user input:", error);
+    return input; // Return original input if OpenAI fails
+  }
+}
+
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -52,16 +77,20 @@ export async function POST(req: NextRequest) {
       })),
       { role: 'user', content: message }
     ];
+    const processedMessage = await processUserInput(message);
+    console.log("processedMessage", processedMessage);
 
     try {
       // Generate embedding and query index in parallel
       const [embeddingResponse, index] = await Promise.all([
         openai.embeddings.create({
           model: "text-embedding-3-small",
-          input: message,
+          input: processedMessage,
         }),
         pc.index("vta-risk-management"),
       ]);
+
+      
 
       const embedding = embeddingResponse.data[0].embedding;
 
