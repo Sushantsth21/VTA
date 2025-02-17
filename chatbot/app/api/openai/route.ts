@@ -20,12 +20,12 @@ const SYSTEM_MESSAGE: Message = {
 
 async function processUserInput(input: string): Promise<string> {
   const correctionPrompt = `
-Check whether there are any mistakes in the following input. If there are mistakes, correct them. 
-Then convert it into a question format (who, what, when, how, why, or where) if it is not already. 
-Do not modify anything unnecessarily. Keep it simple and proper.
+  Do not modify anything unnecessarily. You are a knowledgeable and friendly virtual teaching assistant for a cybersecurity class.
+Remove stopwords from the input and correct any spelling or grammatical errors. If the input is already correct, you can leave it unchanged.
 Input: "${input}"
-Corrected and Question format:
+
 `;
+
 
   try {
     const response = await openai.chat.completions.create({
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       })),
       { role: 'user', content: message }
     ];
-    const processedMessage = await processUserInput(message);
+    const processedMessage = (await processUserInput(message)).toLowerCase();
     console.log("processedMessage", processedMessage);
 
     try {
@@ -102,6 +102,7 @@ export async function POST(req: NextRequest) {
       });
 
       const metadataResults = queryResponse.matches.map(match => match.metadata);
+      console.log(JSON.stringify(metadataResults))
 
       // Prepare messages for OpenAI API
       const messagesForAPI: Message[] = [
