@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
       // Query the vector database
       const queryResponse = await index.namespace('Syllabus-data-betterChuncking').query({
         vector: embedding,
-        topK: 3,
+        topK: 5,
         includeMetadata: true,
       });
 
