@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { openai, pc } from '../config';
 import { connectToDatabase } from '../config';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { ObjectId } from 'mongodb';
 
 type Message = ChatCompletionMessageParam;
 
@@ -11,6 +12,13 @@ interface ChatInteraction {
   content: string;
   timestamp: Date;
   sessionId: string;
+  rating?: 'helpful' | 'unhelpful';
+  ratedAt?: Date;
+  messages: {
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: Date;
+  }[];
 }
 
 const SYSTEM_MESSAGE: Message = {
@@ -26,7 +34,6 @@ Input: "${input}"
 
 `;
 
-
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -41,7 +48,6 @@ Input: "${input}"
     return input; // Return original input if OpenAI fails
   }
 }
-
 
 export async function POST(req: NextRequest) {
   try {
@@ -60,7 +66,7 @@ export async function POST(req: NextRequest) {
       throw new Error('Failed to connect to database');
     }
 
-    const chatCollection = db.collection<ChatInteraction>('chat_interactions');
+    const chatCollection = db.collection<ChatInteraction>('pilot');
 
     // Retrieve recent chat history for context
     const chatHistory = await chatCollection
@@ -71,10 +77,10 @@ export async function POST(req: NextRequest) {
     // Format chat history with system message
     const formattedChatHistory: Message[] = [
       SYSTEM_MESSAGE,
-      ...chatHistory.map(entry => ({
-        role: entry.role,
-        content: entry.content
-      })),
+      ...chatHistory.flatMap(entry => entry.messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))),
       { role: 'user', content: message }
     ];
     const processedMessage = (await processUserInput(message)).toLowerCase();
@@ -90,12 +96,10 @@ export async function POST(req: NextRequest) {
         pc.index("vta-risk-management"),
       ]);
 
-      
-
       const embedding = embeddingResponse.data[0].embedding;
 
       // Query the vector database
-      const queryResponse = await index.namespace('Syllabus-data-betterChuncking').query({
+      const queryResponse = await index.namespace('MCY660').query({
         vector: embedding,
         topK: 5,
         includeMetadata: true,
@@ -128,25 +132,31 @@ Please use this context to inform your response to the user's latest message.`
         throw new Error("Empty or invalid reply from OpenAI");
       }
 
-      // Store conversation in database
-      await Promise.all([
-        chatCollection.insertOne({
-          role: 'user',
-          content: message,
-          timestamp: new Date(),
-          sessionId
-        }),
-        chatCollection.insertOne({
-          role: 'assistant',
-          content: reply,
-          timestamp: new Date(),
-          sessionId
-        })
-      ]);
+      // Store user and assistant messages in a single document
+      const chatInteractionResult = await chatCollection.insertOne({
+        role: 'assistant',
+        content: reply,
+        timestamp: new Date(),
+        sessionId,
+        messages: [
+          {
+            role: 'user',
+            content: message,
+            timestamp: new Date(),
+          },
+          {
+            role: 'assistant',
+            content: reply,
+            timestamp: new Date(),
+          }
+        ]
+      });
 
+      // Return the message ID to allow rating
       return NextResponse.json({
         reply,
         sessionId,
+        messageId: chatInteractionResult.insertedId.toString(),
         history: formattedChatHistory
       });
 
