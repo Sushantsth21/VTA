@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { openai, pc } from '../config';
 import { connectToDatabase } from '../config';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import { ObjectId } from 'mongodb';
+
 
 type Message = ChatCompletionMessageParam;
 
