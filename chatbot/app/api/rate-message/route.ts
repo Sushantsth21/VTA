@@ -1,7 +1,6 @@
 // app/api/rate-message/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '../config';
-import { ObjectId } from 'mongodb';
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     // Update the message with the rating
     const result = await chatCollection.updateOne(
-      { _id: new ObjectId(messageId) },
+      { _id: messageId },
       { 
         $set: { 
           rating,
