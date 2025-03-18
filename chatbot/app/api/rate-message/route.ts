@@ -1,6 +1,7 @@
 // app/api/rate-message/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '../config';
+import { ObjectId } from 'mongodb';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +11,13 @@ export async function POST(req: NextRequest) {
     if (!messageId) {
       return NextResponse.json(
         { error: 'Message ID is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!rating) {
+      return NextResponse.json(
+        { error: 'Rating is required' },
         { status: 400 }
       );
     }
@@ -28,9 +36,17 @@ export async function POST(req: NextRequest) {
 
     const chatCollection = db.collection('pilot');
 
+    // Ensure messageId is a valid ObjectId
+    if (!ObjectId.isValid(messageId)) {
+      return NextResponse.json(
+        { error: 'Invalid Message ID' },
+        { status: 400 }
+      );
+    }
+
     // Update the message with the rating
     const result = await chatCollection.updateOne(
-      { _id: messageId },
+      { _id: new ObjectId(messageId) },
       { 
         $set: { 
           rating,
