@@ -112,8 +112,8 @@ export async function POST(req: NextRequest) {
       { role: 'user', content: message }
     ];
 
-    async function processMessage(message: String) {
-      const processedMessage = (await message).toLowerCase();
+    async function processMessage(message: string) {
+      const processedMessage = message.toLowerCase();
   
       // Regex to split sentences while handling abbreviations
       const sentences = processedMessage.match(/[^.!?]+[.!?]+(?:\s|$)/g) || [processedMessage];
