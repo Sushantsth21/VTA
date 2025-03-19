@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
       const embedding = embeddingResponse.data[0].embedding;
 
       // Query the vector database
-      const queryResponse = await index.namespace('MCY660_V3').query({
+      const queryResponse = await index.namespace('MCY660_V2').query({
         vector: embedding,
         topK: 3,
         includeMetadata: true,
