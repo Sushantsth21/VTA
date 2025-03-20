@@ -29,20 +29,13 @@ const SYSTEM_MESSAGE: Message = {
 CONTEXT HANDLING:
 1. ALWAYS prioritize information from the retrieved course materials (textbooks, lecture slides, quizzes, syllabus) over your pre-trained knowledge.
 2. When answering questions, first search the retrieved context for relevant information.
-3. EXPLICITLY cite which course material you're referencing (e.g., "According to Lecture 3, slide 7..." or "In Chapter 2 of your textbook...").
-4. If the retrieved context doesn't contain information to answer the question completely, clearly state this limitation before providing general guidance.
+3. If the retrieved context doesn't contain information to answer the question completely, clearly state this limitation before providing general guidance.
 
 RESPONSE STRUCTURE:
 1. Begin with a direct answer to the student's question based on course materials.
-2. Provide supporting explanations with specific references to course materials.
+2. Provide supporting explanations with specific references to course materials, if needed.
 3. Include practical examples or applications that reinforce the concept.
-4. End with a thought-provoking question or suggestion for further exploration within course materials.
 
-SECURITY GUARDRAILS:
-1. NEVER provide complete solutions to assignments or exam questions.
-2. Do not share offensive security techniques without explicitly stating ethical considerations and legal implications.
-3. When discussing potentially harmful cybersecurity concepts, always emphasize defensive perspectives and ethical boundaries.
-4. If asked to explain how to perform potentially harmful actions, redirect to explaining detection and prevention methods instead.
 
 PEDAGOGICAL APPROACH:
 1. Break down complex topics into understandable components.
@@ -55,39 +48,31 @@ Remember: Your purpose is to help students learn cybersecurity effectively by gu
   `
 };
 
-// async function processUserInput(input: string): Promise<string> {
-//   const correctionPrompt = `
-//   Do not modify anything unnecessarily. Just correct any grammatical mistakes to help the AI understand the user's message better.
-// Input: "${input}"
-
-// `;
-
-  // try {
-  //   const response = await openai.chat.completions.create({
-  //     model: "gpt-4o-mini",
-  //     messages: [{ role: "system", content: message }],
-  //     temperature: 0,
-  //     max_tokens: 150,
-  //   });
-
-//     return response.choices[0]?.message?.content?.trim() || input;
-//   } catch (error) {
-//     console.error("Error processing user input:", error);
-//     return input; // Return original input if OpenAI fails
-//   }
-// }
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { message, sessionId = new Date().toISOString() } = body;
+    const { message, sessionId = new Date().toISOString(), selectedOption = "syllabus" } = body;
+
+    // Debugging: Log the request payload
+    console.log("Request Payload:", body);
 
     if (!message?.trim()) {
+      console.error("Validation Error: Message is required");
       return NextResponse.json(
         { error: 'Message is required' },
         { status: 400 }
       );
     }
+
+    if (!selectedOption?.trim()) {
+      console.error("Validation Error: Selected option is required");
+      return NextResponse.json(
+        { error: 'Selected option is required' },
+        { status: 400 }
+      );
+    }
+
+    console.log("Selected Option:", selectedOption);
 
     const db = await connectToDatabase();
     if (!db) {
@@ -119,10 +104,10 @@ export async function POST(req: NextRequest) {
       const sentences = processedMessage.match(/[^.!?]+[.!?]+(?:\s|$)/g) || [processedMessage];
   
       return sentences.map(sentence => sentence.trim());
-  }
+    }
   
     const processedMessage = await processMessage(message);
-    console.log("processedMessage", processedMessage);
+    console.log("Processed Message:", processedMessage);
 
     try {
       // Generate embedding and query index in parallel
@@ -137,14 +122,14 @@ export async function POST(req: NextRequest) {
       const embedding = embeddingResponse.data[0].embedding;
 
       // Query the vector database
-      const queryResponse = await index.namespace('MCY660_V2').query({
+      const queryResponse = await index.namespace(selectedOption).query({
         vector: embedding,
-        topK: 3,
+        topK: 5,
         includeMetadata: true,
       });
-
+      
       const metadataResults = queryResponse.matches.map(match => match.metadata);
-      console.log(JSON.stringify(metadataResults))
+      console.log("Metadata Results:", JSON.stringify(metadataResults));
 
       // Prepare messages for OpenAI API
       const messagesForAPI: Message[] = [

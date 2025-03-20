@@ -13,6 +13,7 @@ import {
   X,
   ThumbsUp,
   ThumbsDown,
+  ChevronDown,
 } from "lucide-react";
 import { Card, CardHeader } from "./ui/card";
 
@@ -30,6 +31,13 @@ const Talk: React.FC = () => {
   const [sessionId, setSessionId] = useState<string>("");
   const [darkMode, setDarkMode] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedOption, setSelectedOption] = useState("syllabus");
+  
+  // Options mapping for display names
+  const optionLabels: Record<string, string> = {
+    "syllabus": "Course Syllabus",
+    "module-1": "Module 1: Introduction to Risk Management"
+  };
 
   useEffect(() => {
     setSessionId(new Date().toISOString());
@@ -59,7 +67,7 @@ const Talk: React.FC = () => {
       const response = await fetch("/api/openai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input, sessionId }),
+        body: JSON.stringify({ message: input, sessionId, selectedOption }),
       });
       if (!response.ok) throw new Error("Network response was not ok");
       const data = await response.json();
@@ -79,6 +87,32 @@ const Talk: React.FC = () => {
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to handle context change
+  const changeContext = async (newContext: string) => {
+    setSelectedOption(newContext);
+    
+    try {
+      const response = await fetch("/api/set-context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selectedOption: newContext, sessionId }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to update context");
+      
+      // Optionally show a system message about the context change
+      setMessages(prevMessages => [
+        ...prevMessages,
+        { 
+          sender: "bot", 
+          text: `Context switched to: ${optionLabels[newContext] || newContext}`
+        }
+      ]);
+    } catch (error) {
+      console.error("Error changing context:", error);
     }
   };
 
@@ -131,15 +165,39 @@ const Talk: React.FC = () => {
         </button>
       </div>
 
-      <select
-        className={`w-full p-2 mb-4 rounded-lg ${
-          darkMode
-            ? "bg-gray-800 text-white border-gray-700"
-            : "bg-white text-gray-900 border-gray-300"
-        } border`}
-      >
-        <option value="">MCY 660 - Risk Management</option>
-      </select>
+      {/* Current Selection Display */}
+      <div className={`mb-4 p-3 rounded-lg flex items-center justify-between ${
+        darkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"
+      } border ${darkMode ? "border-gray-700" : "border-gray-300"}`}>
+        <span className="font-medium">Current Context:</span>
+        <span className="text-yellow-500">{optionLabels[selectedOption] || selectedOption}</span>
+      </div>
+
+      {/* Dropdown with better styling */}
+      <div className={`relative mb-6 ${
+        darkMode ? "text-white" : "text-gray-900"
+      }`}>
+        <label className="block text-sm font-medium mb-2">Change Context</label>
+        <div className="relative">
+          <select
+            className={`appearance-none w-full p-3 pr-8 rounded-lg ${
+              darkMode
+                ? "bg-gray-800 text-white border-gray-700 focus:border-yellow-500"
+                : "bg-white text-gray-900 border-gray-300 focus:border-yellow-600"
+            } border focus:outline-none focus:ring-2 ${
+              darkMode ? "focus:ring-yellow-500/20" : "focus:ring-yellow-600/20"
+            }`}
+            value={selectedOption}
+            onChange={(e) => changeContext(e.target.value)}
+          >
+            <option value="syllabus">Course Syllabus</option>
+            <option value="module-1">Module 1: Introduction to Risk Management</option>
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
+            <ChevronDown className={`h-4 w-4 ${darkMode ? "text-gray-400" : "text-gray-500"}`} />
+          </div>
+        </div>
+      </div>
 
       <div className="space-y-2">
         {["Chat", "Course Content", "Deadlines", "Assignments"].map((item, index) => (
