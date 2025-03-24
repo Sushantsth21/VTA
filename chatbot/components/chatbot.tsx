@@ -36,7 +36,8 @@ const Talk: React.FC = () => {
   // Options mapping for display names
   const optionLabels: Record<string, string> = {
     "syllabus": "Course Syllabus",
-    "module-1": "Module 1: Introduction to Risk Management"
+    "module-1": "Module 1: Risk Management Fundamentals",
+    "module-2": "Module 2: Compliance and Risk Management Plan Development",
   };
 
   useEffect(() => {
@@ -191,7 +192,8 @@ const Talk: React.FC = () => {
             onChange={(e) => changeContext(e.target.value)}
           >
             <option value="syllabus">Course Syllabus</option>
-            <option value="module-1">Module 1: Introduction to Risk Management</option>
+            <option value="module-1">Module 1: Risk Management Fundamentals</option>
+            <option value="module-2">Module 2: Compliance and Risk Management Plan Development</option>
           </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
             <ChevronDown className={`h-4 w-4 ${darkMode ? "text-gray-400" : "text-gray-500"}`} />
