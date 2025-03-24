@@ -43,7 +43,7 @@ PEDAGOGICAL APPROACH:
 3. Use analogies relevant to cybersecurity to explain difficult concepts.
 4. Encourage critical thinking by asking students to consider implications or applications of concepts.
 
-Remember: Your purpose is to help students learn cybersecurity effectively by guiding them to understand and apply concepts from their course materials, not to replace those materials or their own critical thinking.
+Remember: Your purpose is to help students learn cybersecurity effectively by guiding them to understand and apply concepts from their course materials, not to replace those materials or their own critical thinking. And that you have a 1000 token limit for each response.
 
   `
 };
@@ -146,7 +146,7 @@ Please use this context to inform your response to the user's latest message.`
         model: "gpt-4o-mini",
         messages: messagesForAPI,
         temperature: 0.5,
-        max_tokens: 300,
+        max_tokens: 1000,
       });
 
       const reply = response.choices[0]?.message?.content;
