@@ -38,6 +38,7 @@ const Talk: React.FC = () => {
     "syllabus": "Course Syllabus",
     "module-1": "Module 1: Risk Management Fundamentals",
     "module-2": "Module 2: Compliance and Risk Management Plan Development",
+    "module-3": "Module 3: Risk Assessment",
   };
 
   useEffect(() => {
@@ -194,6 +195,7 @@ const Talk: React.FC = () => {
             <option value="syllabus">Course Syllabus</option>
             <option value="module-1">Module 1: Risk Management Fundamentals</option>
             <option value="module-2">Module 2: Compliance and Risk Management Plan Development</option>
+            <option value="module-3">Module 3: Risk Assessment</option>
           </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
             <ChevronDown className={`h-4 w-4 ${darkMode ? "text-gray-400" : "text-gray-500"}`} />
