@@ -212,23 +212,21 @@ const Talk: React.FC = () => {
         </div>
       </div>
 
+      {/* Survey Link */}
       <div className="space-y-2">
-        {["Chat", "Course Content", "Deadlines", "Assignments"].map((item, index) => (
-          <button
-            key={index}
-            className={`flex items-center w-full p-3 rounded-lg transition ${
-              darkMode
-                ? "bg-gray-800 text-white hover:bg-gray-700 hover:text-yellow-500"
-                : "bg-white text-gray-900 hover:bg-gray-100 hover:text-yellow-600"
-            }`}
-          >
-            {index === 0 && <MessageCircle className="w-5 h-5 mr-3" />}
-            {index === 1 && <Book className="w-5 h-5 mr-3" />}
-            {index === 2 && <Calendar className="w-5 h-5 mr-3" />}
-            {index === 3 && <FileText className="w-5 h-5 mr-3" />}
-            {item}
-          </button>
-        ))}
+        <a
+          href="https://nku.co1.qualtrics.com/jfe/form/SV_cCJb5lGpYj9qrK6"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex items-center w-full p-3 rounded-lg transition ${
+            darkMode
+              ? "bg-gray-800 text-white hover:bg-gray-700 hover:text-yellow-500"
+              : "bg-white text-gray-900 hover:bg-gray-100 hover:text-yellow-600"
+          }`}
+        >
+          <FileText className="w-5 h-5 mr-3" />
+          Survey
+        </a>
       </div>
     </div>
   );
