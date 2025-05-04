@@ -146,7 +146,6 @@ Please use this context to inform your response to the user's latest message.`
         model: "gpt-4o-mini",
         messages: messagesForAPI,
         temperature: 0.5,
-        max_tokens: 1000,
       });
 
       const reply = response.choices[0]?.message?.content;
